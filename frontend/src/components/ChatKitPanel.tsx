@@ -8,39 +8,40 @@ import {
   GREETING,
 } from "../lib/config";
 import type { FactAction } from "../hooks/useFacts";
-import type { ColorScheme } from "../hooks/useColorScheme";
-
 type ChatKitPanelProps = {
-  theme: ColorScheme;
   onWidgetAction: (action: FactAction) => Promise<void>;
   onResponseEnd: () => void;
-  onThemeRequest: (scheme: ColorScheme) => void;
 };
 
-export function ChatKitPanel({
-  theme,
-  onWidgetAction,
-  onResponseEnd,
-  onThemeRequest,
-}: ChatKitPanelProps) {
+export function ChatKitPanel({ onWidgetAction, onResponseEnd }: ChatKitPanelProps) {
   const processedFacts = useRef(new Set<string>());
 
   const chatkit = useChatKit({
     api: { url: CHATKIT_API_URL, domainKey: CHATKIT_API_DOMAIN_KEY },
-    theme: {
-      colorScheme: theme,
-      color: {
-        grayscale: {
-          hue: 220,
-          tint: 6,
-          shade: theme === "dark" ? -1 : -4,
-        },
-        accent: {
-          primary: theme === "dark" ? "#f1f5f9" : "#0f172a",
-          level: 1,
-        },
+    header: {
+      enabled: true,
+      title: {
+        enabled: true,
+        text: "OxyChat",
       },
-      radius: "round",
+    },
+    theme: {
+      colorScheme: 'light',
+      radius: 'pill',
+      density: 'normal',
+      typography: {
+          baseSize: 16,
+          fontFamily: 'Lora, serif',
+          fontSources: [
+            {
+              family: 'Lora',
+              src: 'https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7I_FMl_E.woff2',
+              weight: 400,
+              style: 'normal',
+              display: 'swap'
+            }
+        ]
+      }
     },
     startScreen: {
       greeting: GREETING,
@@ -53,18 +54,6 @@ export function ChatKitPanel({
       feedback: false,
     },
     onClientTool: async (invocation) => {
-      if (invocation.name === "switch_theme") {
-        const requested = invocation.params.theme;
-        if (requested === "light" || requested === "dark") {
-          if (import.meta.env.DEV) {
-            console.debug("[ChatKitPanel] switch_theme", requested);
-          }
-          onThemeRequest(requested);
-          return { success: true };
-        }
-        return { success: false };
-      }
-
       if (invocation.name === "record_fact") {
         const id = String(invocation.params.fact_id ?? "");
         const text = String(invocation.params.fact_text ?? "");
@@ -95,7 +84,7 @@ export function ChatKitPanel({
   });
 
   return (
-    <div className="relative h-full w-full overflow-hidden border border-slate-200/60 bg-white shadow-card dark:border-slate-800/70 dark:bg-slate-900">
+    <div className="h-full w-full overflow-hidden">
       <ChatKit control={chatkit.control} className="block h-full w-full" />
     </div>
   );

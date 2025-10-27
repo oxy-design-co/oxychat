@@ -16,28 +16,13 @@ export const FACTS_API_URL = import.meta.env.VITE_FACTS_API_URL ?? "/facts";
 
 export const THEME_STORAGE_KEY = "chatkit-boilerplate-theme";
 
-export const GREETING = "Welcome to the ChatKit Demo";
+export const GREETING = "Hey Andrew, what can I help you with today?";
 
 export const STARTER_PROMPTS: StartScreenPrompt[] = [
   {
     label: "What can you do?",
     prompt: "What can you do?",
     icon: "circle-question",
-  },
-  {
-    label: "My name is Kaz",
-    prompt: "My name is Kaz",
-    icon: "book-open",
-  },
-  {
-    label: "What's the weather in Paris?",
-    prompt: "What's the weather in Paris?",
-    icon: "search",
-  },
-  {
-    label: "Change the theme to dark mode",
-    prompt: "Change the theme to dark mode",
-    icon: "sparkle",
   },
 ];
 
