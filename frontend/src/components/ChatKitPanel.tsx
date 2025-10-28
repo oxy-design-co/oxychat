@@ -16,6 +16,30 @@ type ChatKitPanelProps = {
 export function ChatKitPanel({ onWidgetAction, onResponseEnd }: ChatKitPanelProps) {
   const processedFacts = useRef(new Set<string>());
 
+  const SAMPLE_ENTITIES = [
+    {
+      id: "doc_1",
+      title: "Sample Document",
+      group: "Meetings",
+      interactive: true,
+      data: { summary: "A placeholder document for demos." },
+    },
+    {
+      id: "agenda_1",
+      title: "Sample Agenda",
+      group: "Samples",
+      interactive: true,
+      data: { summary: "A sample meeting agenda." },
+    },
+    {
+      id: "review_1",
+      title: "Sample Review",
+      group: "Samples",
+      interactive: true,
+      data: { summary: "A mock review item for testing." },
+    },
+  ];
+
   const chatkit = useChatKit({
     api: { url: CHATKIT_API_URL, domainKey: CHATKIT_API_DOMAIN_KEY },
     header: {
@@ -49,6 +73,23 @@ export function ChatKitPanel({ onWidgetAction, onResponseEnd }: ChatKitPanelProp
     },
     composer: {
       placeholder: PLACEHOLDER_INPUT,
+    },
+    entities: {
+      onTagSearch: async (query: string) => {
+        const q = query.trim().toLowerCase();
+        return SAMPLE_ENTITIES.filter((e) => q === "" || e.title.toLowerCase().includes(q));
+      },
+      onRequestPreview: async (entity) => {
+        return {
+          preview: {
+            type: "Card",
+            children: [
+              { type: "Title", value: entity.title },
+              { type: "Text", value: entity.data?.summary ?? "Sample item" },
+            ],
+          },
+        };
+      },
     },
     threadItemActions: {
       feedback: false,
