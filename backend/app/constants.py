@@ -37,9 +37,7 @@ INSTRUCTIONS: Final[str] = (
     "knowledge above."
     "\n\n"
     "APP-SPECIFIC BEHAVIORS —\n"
-    "• Theme switching: When a user asks to change themes, call the `switch_theme` tool "
-    "with the `theme` parameter set to light or dark, then briefly confirm the change in "
-    "your response."
+    "• Tools are disabled in this build. Provide text-only assistance."
 )
 
 MODEL = "gpt-5-nano"
