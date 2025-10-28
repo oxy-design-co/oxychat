@@ -4,11 +4,10 @@ This document explains how the ChatKit starter application works in simple terms
 
 ## What Is This Project?
 
-This is a chat application that uses OpenAI's ChatKit framework. Think of it as a demo that shows you how to build a smart chatbot with a nice user interface. The bot can do three main things:
+This is a chat application that uses OpenAI's ChatKit framework. Think of it as a demo that shows you how to build a smart chatbot with a nice user interface. The bot can do two main things:
 
-1. Record facts about you when you share them
-2. Show weather information for any location
-3. Switch between light and dark themes
+1. Show weather information for any location
+2. Switch between light and dark themes
 
 ## The Big Picture
 
@@ -26,7 +25,7 @@ The frontend is built with React and runs in your web browser at `http://127.0.0
 ### Key Files
 
 - `frontend/src/App.tsx` - The starting point that sets up the app
-- `frontend/src/components/Home.tsx` - The main page layout with chat and facts list
+- `frontend/src/components/Home.tsx` - The main page layout with chat
 - `frontend/src/components/ChatKitPanel.tsx` - The chat window where you talk to the bot
 - `frontend/src/lib/config.ts` - Settings like the greeting message and starter prompts
 
@@ -37,7 +36,7 @@ The frontend is built with React and runs in your web browser at `http://127.0.0
 3. The backend processes it and streams the response back
 4. The chat window displays the AI's reply
 
-When the AI calls special tools (like saving a fact or switching the theme), the frontend listens for these events and updates the page. For example, when you share a fact like "My name is Kaz", the fact appears in the list on the right side of the screen.
+When the AI calls special tools (like switching the theme), the frontend listens for these events and updates the page.
 
 ### Theme Switching
 
@@ -52,22 +51,20 @@ The backend is built with FastAPI (a Python web framework) and runs at `http://1
 - `backend/app/main.py` - Creates the web server and defines the API routes
 - `backend/app/chat.py` - Sets up the ChatKit server and defines the AI agent
 - `backend/app/constants.py` - Contains the instructions that guide the AI's behavior
-- `backend/app/facts.py` - Stores facts in memory
+- `backend/app/facts.py` - (removed) previously stored facts in memory
 - `backend/app/weather.py` - Fetches weather data
 - `backend/app/memory_store.py` - Keeps track of chat threads and messages
 
 ### The AI Agent
 
-The AI agent is created in `chat.py` and has three tools it can use:
+The AI agent is created in `chat.py` and has two tools it can use:
 
-1. **save_fact** - Saves a fact you share in the conversation
-2. **switch_theme** - Changes between light and dark mode
-3. **get_weather** - Looks up weather and shows it in a widget
+1. **switch_theme** - Changes between light and dark mode
+2. **get_weather** - Looks up weather and shows it in a widget
 
 The agent follows instructions from `constants.py` that tell it:
 - To ask users about themselves
-- To save facts immediately when shared
-- To only help with ChatKit questions, facts, and weather
+- To only help with ChatKit questions and weather
 - To politely decline other types of requests
 
 ### How It Processes Messages
@@ -75,18 +72,12 @@ The agent follows instructions from `constants.py` that tell it:
 1. Your message arrives at the `/chatkit` endpoint
 2. The ChatKit server passes it to the AI agent
 3. The agent (powered by GPT-4) decides what to do
-4. If it needs to use a tool (like saving a fact), it calls that function
+4. If it needs to use a tool (like switching theme or getting weather), it calls that function
 5. The response streams back to the frontend in real-time
 
 ### Memory and Storage
 
-Everything is stored in memory, which means:
-- Facts are stored while the server runs
-- When you restart the server, facts are lost
-- Each chat thread keeps its own history
-- No database is needed for this demo
-
-This makes it simple for development, but a real app would use a proper database.
+Chat threads are stored in memory for this demo. A real app would use a proper database.
 
 ## How Frontend and Backend Talk
 
@@ -101,17 +92,7 @@ This setup is configured in `frontend/vite.config.ts`.
 
 ## The Three Main Features
 
-### 1. Fact Recording
-
-When you share information like "I live in Paris" or "My name is Sam":
-
-1. The AI recognizes you shared a fact
-2. It calls the `save_fact` tool with a short summary
-3. The fact is saved in `fact_store` (in memory)
-4. The frontend receives a signal to add the fact to the list
-5. The fact appears on the right side of the screen
-
-### 2. Weather Lookup
+### 1. Weather Lookup
 
 When you ask "What's the weather in Tokyo?":
 
@@ -123,7 +104,7 @@ When you ask "What's the weather in Tokyo?":
 
 The weather feature uses a real weather API to get current conditions and forecasts.
 
-### 3. Theme Switching
+### 2. Theme Switching
 
 When you say "Switch to dark mode":
 
@@ -158,13 +139,7 @@ This installs JavaScript packages and starts the development server.
 
 ### Both Together
 
-From the main directory:
-
-```bash
-npm start
-```
-
-This command runs both servers at the same time (requires `uv` and `OPENAI_API_KEY` to be set).
+From the main directory, run the backend and frontend in separate terminals using the steps above.
 
 ## Environment Variables
 
@@ -200,21 +175,18 @@ To add new tools, create functions in `backend/app/chat.py` decorated with `@fun
 
 ## What Happens Behind the Scenes
 
-Here's the complete flow when you type "My name is Alex":
+Here's the complete flow when you type "What's the weather in Tokyo?":
 
 1. You type in the chat and press enter
 2. ChatKit component sends message to `/chatkit`
 3. Vite proxy forwards to backend at port 8000
 4. FastAPI receives the request in `main.py`
 5. ChatKit server in `chat.py` gets the message
-6. The agent (with GPT-4) processes the message
-7. AI decides to call `save_fact` tool with "User's name is Alex"
-8. Fact is created and stored in `fact_store`
-9. Backend streams the response back
-10. Frontend receives the response and a client tool call
-11. Chat window shows the AI's reply
-12. Fact list updates with the new fact
-13. Everything is complete
+6. The agent processes the message
+7. AI decides to call `get_weather` with "Tokyo"
+8. Backend streams a weather widget
+9. Frontend renders the widget and the AI's reply
+10. Everything is complete
 
 All of this happens in about one second.
 

@@ -13,7 +13,6 @@ from .chat import (
     FactAssistantServer,
     create_chatkit_server,
 )
-from .facts import fact_store
 
 app = FastAPI(title="ChatKit API")
 
@@ -45,26 +44,6 @@ async def chatkit_endpoint(
     return JSONResponse(result)
 
 
-@app.get("/facts")
-async def list_facts() -> dict[str, Any]:
-    facts = await fact_store.list_saved()
-    return {"facts": [fact.as_dict() for fact in facts]}
-
-
-@app.post("/facts/{fact_id}/save")
-async def save_fact(fact_id: str) -> dict[str, Any]:
-    fact = await fact_store.mark_saved(fact_id)
-    if fact is None:
-        raise HTTPException(status_code=404, detail="Fact not found")
-    return {"fact": fact.as_dict()}
-
-
-@app.post("/facts/{fact_id}/discard")
-async def discard_fact(fact_id: str) -> dict[str, Any]:
-    fact = await fact_store.discard(fact_id)
-    if fact is None:
-        raise HTTPException(status_code=404, detail="Fact not found")
-    return {"fact": fact.as_dict()}
 
 
 @app.get("/health")

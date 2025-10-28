@@ -5,7 +5,7 @@ This repository contains a few advanced examples, which serve a complete [ChatKi
 The top-level [**backend**](backend) and [**frontend**](frontend) directories provide a basic project template that demonstrates ChatKit UI, widgets, and client tools.
 
 - It runs a custom ChatKit server built with [ChatKit Python SDK](https://github.com/openai/chatkit-python) and [OpenAI Agents SDK for Python](https://github.com/openai/openai-agents-python).
-- Available agent tools: `get_weather` for rendering a widget, `switch_theme` and `record_fact` as client tools
+- Available agent tools: `get_weather` for rendering a widget and `switch_theme` as a client tool
 
 The Vite server proxies all `/chatkit` traffic straight to the local FastAPI service so you can develop the client and server in tandem without extra wiring.
 
@@ -80,11 +80,10 @@ If you want to verify this remote access during development, temporarily expose 
 
 ### 3. Explore the demo flow
 
-With the app reachable locally or via a tunnel, open it in the browser and try a few interactions. The sample ChatKit UI ships with three tools that trigger visible actions in the pane:
+With the app reachable locally or via a tunnel, open it in the browser and try a few interactions. The sample ChatKit UI ships with two tools that trigger visible actions in the pane:
 
-1. **Fact Recording** - prompt: `My name is Kaz`
-2. **Weather Info** - prompt: `What's the weather in San Francisco today?`
-3. **Theme Switcher** - prompt: `Change the theme to dark mode` 
+1. **Weather Info** - prompt: `What's the weather in San Francisco today?`
+2. **Theme Switcher** - prompt: `Change the theme to dark mode` 
 
 ## What's next
 

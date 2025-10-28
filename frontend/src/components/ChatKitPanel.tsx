@@ -1,4 +1,4 @@
-import { useRef } from "react";
+ 
 import { ChatKit, useChatKit } from "@openai/chatkit-react";
 import {
   CHATKIT_API_URL,
@@ -7,14 +7,7 @@ import {
   PLACEHOLDER_INPUT,
   GREETING,
 } from "../lib/config";
-import type { FactAction } from "../hooks/useFacts";
-type ChatKitPanelProps = {
-  onWidgetAction: (action: FactAction) => Promise<void>;
-  onResponseEnd: () => void;
-};
-
-export function ChatKitPanel({ onWidgetAction, onResponseEnd }: ChatKitPanelProps) {
-  const processedFacts = useRef(new Set<string>());
+export function ChatKitPanel() {
 
   const SAMPLE_ENTITIES = [
     {
@@ -94,30 +87,7 @@ export function ChatKitPanel({ onWidgetAction, onResponseEnd }: ChatKitPanelProp
     threadItemActions: {
       feedback: false,
     },
-    onClientTool: async (invocation) => {
-      if (invocation.name === "record_fact") {
-        const id = String(invocation.params.fact_id ?? "");
-        const text = String(invocation.params.fact_text ?? "");
-        if (!id || processedFacts.current.has(id)) {
-          return { success: true };
-        }
-        processedFacts.current.add(id);
-        void onWidgetAction({
-          type: "save",
-          factId: id,
-          factText: text.replace(/\s+/g, " ").trim(),
-        });
-        return { success: true };
-      }
-
-      return { success: false };
-    },
-    onResponseEnd: () => {
-      onResponseEnd();
-    },
-    onThreadChange: () => {
-      processedFacts.current.clear();
-    },
+    onClientTool: async () => ({ success: false }),
     onError: ({ error }) => {
       // ChatKit handles displaying the error to the user
       console.error("ChatKit error", error);

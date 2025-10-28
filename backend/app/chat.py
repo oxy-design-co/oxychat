@@ -29,7 +29,6 @@ from openai.types.responses import ResponseInputContentParam
 from pydantic import ConfigDict, Field
 
 from .constants import INSTRUCTIONS, MODEL
-from .facts import Fact, fact_store
 from .memory_store import MemoryStore
 from .sample_widget import render_weather_widget, weather_widget_copy_text
 from .weather import (
@@ -72,41 +71,7 @@ class FactAgentContext(AgentContext):
     request_context: dict[str, Any]
 
 
-async def _stream_saved_hidden(ctx: RunContextWrapper[FactAgentContext], fact: Fact) -> None:
-    await ctx.context.stream(
-        ThreadItemDoneEvent(
-            item=HiddenContextItem(
-                id=_gen_id("msg"),
-                thread_id=ctx.context.thread.id,
-                created_at=datetime.now(),
-                content=(
-                    f'<FACT_SAVED id="{fact.id}" threadId="{ctx.context.thread.id}">{fact.text}</FACT_SAVED>'
-                ),
-            ),
-        )
-    )
-
-
-@function_tool(description_override="Record a fact shared by the user so it is saved immediately.")
-async def save_fact(
-    ctx: RunContextWrapper[FactAgentContext],
-    fact: str,
-) -> dict[str, str] | None:
-    try:
-        saved = await fact_store.create(text=fact)
-        confirmed = await fact_store.mark_saved(saved.id)
-        if confirmed is None:
-            raise ValueError("Failed to save fact")
-        await _stream_saved_hidden(ctx, confirmed)
-        ctx.context.client_tool_call = ClientToolCall(
-            name="record_fact",
-            arguments={"fact_id": confirmed.id, "fact_text": confirmed.text},
-        )
-        print(f"FACT SAVED: {confirmed}")
-        return {"fact_id": confirmed.id, "status": "saved"}
-    except Exception:
-        logging.exception("Failed to save fact")
-        return None
+ 
 
 
 @function_tool(
@@ -204,7 +169,7 @@ class FactAssistantServer(ChatKitServer[dict[str, Any]]):
     def __init__(self) -> None:
         self.store: MemoryStore = MemoryStore()
         super().__init__(self.store)
-        tools = [save_fact, switch_theme, get_weather]
+        tools = [switch_theme, get_weather]
         self.assistant = Agent[FactAgentContext](
             model=MODEL,
             name="ChatKit Guide",
