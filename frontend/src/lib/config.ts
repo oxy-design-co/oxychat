@@ -25,4 +25,4 @@ export const STARTER_PROMPTS: StartScreenPrompt[] = [
   },
 ];
 
-export const PLACEHOLDER_INPUT = "Ask about weather or change the theme";
+export const PLACEHOLDER_INPUT = "Ask about meetings — tag transcripts with @doc_1 (up to 5)";

@@ -11,24 +11,38 @@ export function ChatKitPanel() {
   const SAMPLE_ENTITIES = [
     {
       id: "doc_1",
-      title: "Sample Document",
+      title: "Q3 Planning — ACME (Sep 12, 2025)",
       group: "Meetings",
       interactive: true,
-      data: { summary: "A placeholder document for demos." },
+      data: { summary: "Roadmap, risks, budgets." },
     },
     {
-      id: "agenda_1",
-      title: "Sample Agenda",
-      group: "Samples",
+      id: "doc_2",
+      title: "Launch Sync — Phoenix App (Sep 18, 2025)",
+      group: "Meetings",
       interactive: true,
-      data: { summary: "A sample meeting agenda." },
+      data: { summary: "Release checklist, blockers, owners." },
     },
     {
-      id: "review_1",
-      title: "Sample Review",
-      group: "Samples",
+      id: "doc_3",
+      title: "Client Review — Oxy Site (Sep 23, 2025)",
+      group: "Meetings",
       interactive: true,
-      data: { summary: "A mock review item for testing." },
+      data: { summary: "Feedback, scope changes, next steps." },
+    },
+    {
+      id: "doc_4",
+      title: "Research Debrief — Growth Experiments (Sep 25, 2025)",
+      group: "Meetings",
+      interactive: true,
+      data: { summary: "Findings, hypotheses, priorities." },
+    },
+    {
+      id: "doc_5",
+      title: "Postmortem — Campaign Alpha (Sep 27, 2025)",
+      group: "Meetings",
+      interactive: true,
+      data: { summary: "Outcomes, lessons, action items." },
     },
   ];
 

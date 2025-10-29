@@ -38,6 +38,12 @@ INSTRUCTIONS: Final[str] = (
     "\n\n"
     "APP-SPECIFIC BEHAVIORS —\n"
     "• Tools are disabled in this build. Provide text-only assistance."
+    "\n\n"
+    "MEETING TRANSCRIPTS — When users reference meeting transcripts (indicated by "
+    "document tags like @doc_1), you will receive the full transcript content. "
+    "Use this information to: answer questions about what was discussed, summarize "
+    "key points, extract action items or decisions, and connect information across "
+    "multiple meetings."
 )
 
 MODEL = "gpt-5-nano"
