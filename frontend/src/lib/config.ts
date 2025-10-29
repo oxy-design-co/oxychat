@@ -26,3 +26,6 @@ export const STARTER_PROMPTS: StartScreenPrompt[] = [
 ];
 
 export const PLACEHOLDER_INPUT = "Ask anything";
+
+export const MEETINGS_API_URL =
+  import.meta.env.VITE_MEETINGS_API_URL ?? "/api/meetings/recent";

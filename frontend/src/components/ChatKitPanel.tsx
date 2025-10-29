@@ -5,47 +5,50 @@ import {
   STARTER_PROMPTS,
   PLACEHOLDER_INPUT,
   GREETING,
+  MEETINGS_API_URL,
 } from "../lib/config";
-import { useEffect } from "react";
-export function ChatKitPanel() {
+import { useEffect, useState } from "react";
 
-  const SAMPLE_ENTITIES = [
-    {
-      id: "doc_oxy_weekly_planning",
-      title: "Oxy <> Weekly Planning",
-      group: "Transcripts",
-      interactive: true,
-      data: { summary: "" },
-    },
-    {
-      id: "doc_craig_oxy",
-      title: "Craig - Oxy",
-      group: "Transcripts",
-      interactive: true,
-      data: { summary: "" },
-    },
-    {
-      id: "doc_andrew_fitasy_check_in",
-      title: "Andrew Fitasy Check In",
-      group: "Transcripts",
-      interactive: true,
-      data: { summary: "" },
-    },
-    {
-      id: "doc_oxy_internal_sales_planning",
-      title: "Oxy Internal Sales Planning",
-      group: "Transcripts",
-      interactive: true,
-      data: { summary: "" },
-    },
-    {
-      id: "doc_soraban_oxy_weekly_sync",
-      title: "Soraban <> Oxy - Weekly Sync",
-      group: "Transcripts",
-      interactive: true,
-      data: { summary: "" },
-    },
-  ];
+interface MeetingEntity {
+  id: string;
+  title: string;
+  group: string;
+  interactive: boolean;
+  data: { summary: string };
+}
+
+export function ChatKitPanel() {
+  const [entities, setEntities] = useState<MeetingEntity[]>([]);
+
+  // Fetch recent meetings on component mount
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      try {
+        const response = await fetch(`${MEETINGS_API_URL}?limit=10`);
+        if (response.ok) {
+          const data = await response.json();
+          const meetingEntities: MeetingEntity[] = (data.meetings || []).map(
+            (meeting: { id: string; title: string; date: string }) => ({
+              id: meeting.id,
+              title: meeting.title,
+              group: "Transcripts",
+              interactive: true,
+              data: { summary: "" },
+            })
+          );
+          setEntities(meetingEntities);
+        } else {
+          console.error("Failed to fetch meetings:", response.statusText);
+        }
+      } catch (error) {
+        console.error("Error fetching meetings:", error);
+        // Fallback to empty array on error
+        setEntities([]);
+      }
+    };
+
+    fetchMeetings();
+  }, []);
 
   const chatkit = useChatKit({
     api: { url: CHATKIT_API_URL, domainKey: CHATKIT_API_DOMAIN_KEY },
@@ -84,7 +87,7 @@ export function ChatKitPanel() {
     entities: {
       onTagSearch: async (query: string) => {
         const q = query.trim().toLowerCase();
-        return SAMPLE_ENTITIES.filter((e) => q === "" || e.title.toLowerCase().includes(q));
+        return entities.filter((e) => q === "" || e.title.toLowerCase().includes(q));
       },
       onRequestPreview: async (entity) => {
         return {
