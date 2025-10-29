@@ -25,14 +25,16 @@ from chatkit.types import (
     ThreadStreamEvent,
     UserMessageItem,
 )
-from openai.types.responses import ResponseInputContentParam
+from openai.types.responses import ResponseInputContentParam, ResponseInputTextParam
+from openai.types.responses.response_input_item_param import Message
 from pydantic import ConfigDict, Field
 
 from .constants import INSTRUCTIONS, MODEL
 from .memory_store import MemoryStore
 from . import transcripts as transcripts_store
+from .converters import TranscriptAwareConverter
 
-# If you want to check what's going on under the hood, set this to DEBUG
+# Default to INFO; switch to DEBUG in development if needed
 logging.basicConfig(level=logging.INFO)
 
 
@@ -160,7 +162,8 @@ class AgentControllerServer(ChatKitServer[dict[str, Any]]):
             instructions=INSTRUCTIONS,
             tools=[],  # no tools enabled
         )
-        self._thread_item_converter = self._init_thread_item_converter()
+        # Use a transcript-aware converter that emits @-mention context
+        self._thread_item_converter = TranscriptAwareConverter()
 
     async def respond(
         self,
@@ -168,6 +171,11 @@ class AgentControllerServer(ChatKitServer[dict[str, Any]]):
         item: UserMessageItem | None,
         context: dict[str, Any],
     ) -> AsyncIterator[ThreadStreamEvent]:
+        logging.debug(
+            "[respond] start thread_id=%s has_input=%s",
+            getattr(thread, "id", None),
+            item is not None,
+        )
         agent_context = AgentControllerContext(
             thread=thread,
             store=self.store,
@@ -179,19 +187,50 @@ class AgentControllerServer(ChatKitServer[dict[str, Any]]):
             target_item = await self._latest_thread_item(thread, context)
 
         if target_item is None or _is_tool_completion_item(target_item):
+            logging.debug("[respond] no target item or tool completion; abort")
             return
 
-        agent_input = await self._to_agent_input(thread, target_item)
+        # Prefer converter output for user messages; fallback for other items
+        agent_input = None
+        if isinstance(target_item, UserMessageItem) and self._thread_item_converter is not None:
+            agent_input = await self._thread_item_converter.to_agent_input(target_item)
+        else:
+            agent_input = await self._to_agent_input(thread, target_item)
         if agent_input is None:
+            logging.debug("[respond] converter produced no agent input; abort")
             return
+
+        # Inject short rolling history (user turns only) before current message
+        try:
+            history_messages: list[Message] = await self._build_history_messages(
+                thread,
+                getattr(target_item, "id", None),
+                context,
+                max_items=6,
+            )
+        except Exception:
+            logging.debug("[respond] failed to build history; continuing without it")
+            history_messages = []
+
+        final_input = agent_input
+        if isinstance(agent_input, list) and history_messages:
+            final_input = [*history_messages, *agent_input]
 
         result = Runner.run_streamed(
             self.assistant,
-            agent_input,
+            final_input,
             context=agent_context,
         )
 
         async for event in stream_agent_response(agent_context, result):
+            try:
+                logging.debug(
+                    "[respond] event=%s thread_id=%s",
+                    event.__class__.__name__,
+                    getattr(thread, "id", None),
+                )
+            except Exception:
+                pass
             yield event
         return
 
@@ -288,53 +327,10 @@ class AgentControllerServer(ChatKitServer[dict[str, Any]]):
         if base_text is None and isinstance(item, UserMessageItem):
             base_text = _user_message_text(item)
 
-        # If we have user text, attempt transcript augmentation
+        # If we have user text, return it as-is here; the converter handles @-mention context
         if isinstance(item, UserMessageItem) and base_text is not None:
             logging.info("[chat] user_text: %s", base_text)
-            # First try to find raw @doc_* in text
-            doc_ids = _extract_doc_ids(base_text)
-            # If none, try to read from structured parts (entity mention payloads)
-            if not doc_ids:
-                doc_ids = _extract_doc_ids_from_item(item)
-            logging.info("[chat] detected_doc_ids: %s", doc_ids)
-            if not doc_ids:
-                return base_text
-
-            found = [transcripts_store.get_transcript(doc_id) for doc_id in doc_ids]
-            transcripts = [t for t in found if t is not None]
-            logging.info("[chat] transcripts_found: %d", len(transcripts))
-            if not transcripts:
-                return base_text
-
-            def _remove_doc_tags(text: str) -> str:
-                cleaned = _DOC_TAG_PATTERN.sub("", text or "").strip()
-                return re.sub(r"\s+", " ", cleaned)
-
-            cleaned_question = _remove_doc_tags(base_text)
-
-            sections: list[str] = []
-            for t in transcripts:
-                sections.append(
-                    (
-                        f"---\n"
-                        f"Title: {t.title}\n"
-                        f"ID: {t.id}\n"
-                        f"Date: {t.date}\n"
-                        f"Summary: {t.summary}\n"
-                        f"Transcript:\n{t.content}\n"
-                    )
-                )
-
-            augmented = (
-                "You are given meeting transcript context referenced by the user via @doc_* tags.\n\n"
-                "Use the transcripts to answer questions, summarize key points, extract action items, "
-                "and connect information across meetings.\n\n"
-                + "\n".join(sections)
-                + "\n\nUser question: "
-                + cleaned_question
-            )
-            logging.info("[chat] augmented_len=%d preview=%.120s", len(augmented), augmented)
-            return augmented
+            return base_text
 
         if isinstance(item, UserMessageItem):
             return _user_message_text(item)
@@ -357,6 +353,48 @@ class AgentControllerServer(ChatKitServer[dict[str, Any]]):
             ),
             context,
         )
+
+    async def _build_history_messages(
+        self,
+        thread: ThreadMetadata,
+        exclude_item_id: str | None,
+        context: dict[str, Any],
+        max_items: int = 6,
+    ) -> list[Message]:
+        try:
+            page = await self.store.load_thread_items(
+                thread.id, None, max_items, "asc", context
+            )
+        except Exception:
+            return []
+
+        texts: list[str] = []
+        for it in page.data:
+            if exclude_item_id and getattr(it, "id", None) == exclude_item_id:
+                continue
+            if isinstance(it, UserMessageItem):
+                text = _user_message_text(it)
+                if text:
+                    texts.append(f"User: {text}")
+
+        if not texts:
+            return []
+
+        history_blob = "\n".join(texts[-max_items:])
+        return [
+            Message(
+                role="user",
+                type="message",
+                content=[
+                    ResponseInputTextParam(
+                        type="input_text",
+                        text=(
+                            "Prior conversation turns (most recent last):\n" + history_blob
+                        ),
+                    )
+                ],
+            )
+        ]
 
 
 def create_chatkit_server() -> AgentControllerServer | None:

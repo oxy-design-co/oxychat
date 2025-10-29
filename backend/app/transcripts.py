@@ -22,6 +22,7 @@ TRANSCRIPTS: Final[dict[str, Transcript]] = {
         content=(
             "Kickoff for Q3 roadmap. Discussed key initiatives, budget allocations, "
             "risk register (supply chain, hiring), and success metrics."
+            "sksljdnkdsjnksdjfnfksjnfksjnksj f bunch of garbage text to test the system"
         ),
     ),
     "doc_2": Transcript(

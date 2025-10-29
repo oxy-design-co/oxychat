@@ -6,6 +6,8 @@ from typing import Any, Dict, List
 
 from chatkit.store import NotFoundError, Store
 from chatkit.types import Attachment, Page, Thread, ThreadItem, ThreadMetadata
+import logging
+from uuid import uuid4
 
 
 @dataclass
@@ -18,6 +20,7 @@ class MemoryStore(Store[dict[str, Any]]):
     """Simple in-memory store compatible with the ChatKit server interface."""
 
     def __init__(self) -> None:
+        self._logger = logging.getLogger("chatkit.memory_store")
         self._threads: Dict[str, _ThreadState] = {}
         # Attachments intentionally unsupported; use a real store that enforces auth.
 
@@ -38,7 +41,14 @@ class MemoryStore(Store[dict[str, Any]]):
     async def load_thread(self, thread_id: str, context: dict[str, Any]) -> ThreadMetadata:
         state = self._threads.get(thread_id)
         if not state:
+            self._logger.debug("load_thread: thread_id=%s not found", thread_id)
             raise NotFoundError(f"Thread {thread_id} not found")
+        self._logger.debug(
+            "load_thread: thread_id=%s title=%s items=%s",
+            thread_id,
+            getattr(state.thread, "title", None),
+            len(state.items),
+        )
         return self._coerce_thread_metadata(state.thread)
 
     async def save_thread(self, thread: ThreadMetadata, context: dict[str, Any]) -> None:
@@ -46,10 +56,21 @@ class MemoryStore(Store[dict[str, Any]]):
         state = self._threads.get(thread.id)
         if state:
             state.thread = metadata
+            self._logger.debug(
+                "save_thread: updated thread_id=%s title=%s items=%s",
+                thread.id,
+                getattr(metadata, "title", None),
+                len(state.items),
+            )
         else:
             self._threads[thread.id] = _ThreadState(
                 thread=metadata,
                 items=[],
+            )
+            self._logger.debug(
+                "save_thread: created thread_id=%s title=%s",
+                thread.id,
+                getattr(metadata, "title", None),
             )
 
     async def load_threads(
@@ -82,7 +103,12 @@ class MemoryStore(Store[dict[str, Any]]):
         )
 
     async def delete_thread(self, thread_id: str, context: dict[str, Any]) -> None:
-        self._threads.pop(thread_id, None)
+        removed = self._threads.pop(thread_id, None)
+        self._logger.debug(
+            "delete_thread: thread_id=%s existed=%s",
+            thread_id,
+            removed is not None,
+        )
 
     # -- Thread items ----------------------------------------------------
     def _items(self, thread_id: str) -> List[ThreadItem]:
@@ -93,6 +119,9 @@ class MemoryStore(Store[dict[str, Any]]):
                 items=[],
             )
             self._threads[thread_id] = state
+            self._logger.debug(
+                "_items: auto-created thread state thread_id=%s", thread_id
+            )
         return state.items
 
     async def load_thread_items(
@@ -119,24 +148,96 @@ class MemoryStore(Store[dict[str, Any]]):
         has_more = len(slice_items) > limit
         slice_items = slice_items[:limit]
         next_after = slice_items[-1].id if has_more and slice_items else None
-        return Page(data=slice_items, has_more=has_more, after=next_after)
+        page = Page(data=slice_items, has_more=has_more, after=next_after)
+        self._logger.debug(
+            "load_thread_items: thread_id=%s total=%s returned=%s order=%s after=%s has_more=%s",
+            thread_id,
+            len(items),
+            len(page.data),
+            order,
+            after,
+            has_more,
+        )
+        return page
 
     async def add_thread_item(
         self, thread_id: str, item: ThreadItem, context: dict[str, Any]
     ) -> None:
-        self._items(thread_id).append(item.model_copy(deep=True))
+        items = self._items(thread_id)
+        before = len(items)
+        # Guard: avoid silent overwrite if caller reuses item.id
+        if any(getattr(existing, "id", None) == getattr(item, "id", None) for existing in items):
+            try:
+                # Recreate an id with the store's generator to avoid collision
+                new_id = self.generate_item_id(
+                    "message",
+                    ThreadMetadata(id=thread_id, created_at=datetime.utcnow()),
+                    context,
+                )
+                self._logger.warning(
+                    "add_thread_item: duplicate id detected thread_id=%s item_id=%s -> new_id=%s",
+                    thread_id,
+                    getattr(item, "id", None),
+                    new_id,
+                )
+                item = item.model_copy(update={"id": new_id})
+            except Exception:
+                # Fallback: suffix the id
+                suffix_id = f"{getattr(item, 'id', 'item')}_{uuid4().hex[:6]}"
+                self._logger.warning(
+                    "add_thread_item: duplicate id fallback thread_id=%s item_id=%s -> new_id=%s",
+                    thread_id,
+                    getattr(item, "id", None),
+                    suffix_id,
+                )
+                item = item.model_copy(update={"id": suffix_id})
+        items.append(item.model_copy(deep=True))
+        self._logger.debug(
+            "add_thread_item: thread_id=%s item_id=%s type=%s count %s->%s",
+            thread_id,
+            getattr(item, "id", None),
+            item.__class__.__name__,
+            before,
+            len(items),
+        )
 
     async def save_item(self, thread_id: str, item: ThreadItem, context: dict[str, Any]) -> None:
         items = self._items(thread_id)
         for idx, existing in enumerate(items):
             if existing.id == item.id:
+                try:
+                    existing_dump = existing.model_dump(exclude_none=True)
+                    new_dump = item.model_dump(exclude_none=True)
+                    is_change = existing_dump != new_dump
+                except Exception:
+                    is_change = True
                 items[idx] = item.model_copy(deep=True)
+                self._logger.debug(
+                    "save_item: updated thread_id=%s item_id=%s type=%s changed=%s",
+                    thread_id,
+                    getattr(item, "id", None),
+                    item.__class__.__name__,
+                    is_change,
+                )
                 return
         items.append(item.model_copy(deep=True))
+        self._logger.debug(
+            "save_item: appended thread_id=%s item_id=%s type=%s new_count=%s",
+            thread_id,
+            getattr(item, "id", None),
+            item.__class__.__name__,
+            len(items),
+        )
 
     async def load_item(self, thread_id: str, item_id: str, context: dict[str, Any]) -> ThreadItem:
         for item in self._items(thread_id):
             if item.id == item_id:
+                self._logger.debug(
+                    "load_item: found thread_id=%s item_id=%s type=%s",
+                    thread_id,
+                    item_id,
+                    item.__class__.__name__,
+                )
                 return item.model_copy(deep=True)
         raise NotFoundError(f"Item {item_id} not found")
 
@@ -144,7 +245,31 @@ class MemoryStore(Store[dict[str, Any]]):
         self, thread_id: str, item_id: str, context: dict[str, Any]
     ) -> None:
         items = self._items(thread_id)
+        before = len(items)
         self._threads[thread_id].items = [item for item in items if item.id != item_id]
+        self._logger.debug(
+            "delete_thread_item: thread_id=%s item_id=%s count %s->%s",
+            thread_id,
+            item_id,
+            before,
+            len(self._threads[thread_id].items),
+        )
+
+    # -- ID generation ---------------------------------------------------
+    def generate_thread_id(self, context: dict[str, Any]) -> str:
+        thread_id = f"thread_{uuid4().hex[:12]}"
+        self._logger.debug("generate_thread_id: %s", thread_id)
+        return thread_id
+
+    def generate_item_id(self, kind: str, thread: ThreadMetadata, context: dict[str, Any]) -> str:
+        item_id = f"{kind}_{uuid4().hex[:12]}"
+        self._logger.debug(
+            "generate_item_id: kind=%s thread_id=%s item_id=%s",
+            kind,
+            thread.id,
+            item_id,
+        )
+        return item_id
 
     # -- Files -----------------------------------------------------------
     # These methods are not currently used but required to be compatible with the Store interface.

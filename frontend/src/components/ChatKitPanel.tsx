@@ -6,41 +6,42 @@ import {
   PLACEHOLDER_INPUT,
   GREETING,
 } from "../lib/config";
+import { useEffect } from "react";
 export function ChatKitPanel() {
 
   const SAMPLE_ENTITIES = [
     {
       id: "doc_1",
       title: "Q3 Planning — ACME (Sep 12, 2025)",
-      group: "Meetings",
+      group: "Transcripts",
       interactive: true,
       data: { summary: "Roadmap, risks, budgets." },
     },
     {
       id: "doc_2",
       title: "Launch Sync — Phoenix App (Sep 18, 2025)",
-      group: "Meetings",
+      group: "Transcripts",
       interactive: true,
       data: { summary: "Release checklist, blockers, owners." },
     },
     {
       id: "doc_3",
       title: "Client Review — Oxy Site (Sep 23, 2025)",
-      group: "Meetings",
+      group: "Transcripts",
       interactive: true,
       data: { summary: "Feedback, scope changes, next steps." },
     },
     {
       id: "doc_4",
       title: "Research Debrief — Growth Experiments (Sep 25, 2025)",
-      group: "Meetings",
+      group: "Transcripts",
       interactive: true,
       data: { summary: "Findings, hypotheses, priorities." },
     },
     {
       id: "doc_5",
       title: "Postmortem — Campaign Alpha (Sep 27, 2025)",
-      group: "Meetings",
+      group: "Transcripts",
       interactive: true,
       data: { summary: "Outcomes, lessons, action items." },
     },
@@ -106,6 +107,30 @@ export function ChatKitPanel() {
       console.error("ChatKit error", error);
     },
   });
+
+  // Debug: log current active thread id whenever it changes
+  useEffect(() => {
+    const anyControl = chatkit.control as any;
+    const threadId = anyControl?.state?.thread?.id as string | undefined;
+    if (threadId) {
+      console.debug("[ChatKit] Active thread id:", threadId);
+      try {
+        localStorage.setItem("chatkit.threadId", threadId);
+      } catch {}
+    } else {
+      console.debug("[ChatKit] No active thread");
+    }
+  }, [chatkit.control as unknown as undefined]);
+
+  // Optionally: observe previously persisted thread id (for diagnostics only)
+  useEffect(() => {
+    try {
+      const persisted = localStorage.getItem("chatkit.threadId");
+      if (persisted) {
+        console.debug("[ChatKit] Persisted thread id:", persisted);
+      }
+    } catch {}
+  }, []);
 
   return (
     <div className="h-full w-full overflow-hidden">
