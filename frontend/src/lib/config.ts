@@ -25,4 +25,4 @@ export const STARTER_PROMPTS: StartScreenPrompt[] = [
   },
 ];
 
-export const PLACEHOLDER_INPUT = "Ask about meetings — tag transcripts with @doc_1 (up to 5)";
+export const PLACEHOLDER_INPUT = "Ask anything";

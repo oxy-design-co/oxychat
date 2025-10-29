@@ -35,15 +35,17 @@ class TranscriptAwareConverter(ThreadItemConverter):
             text = f"Transcript not found for id: {tag.id}"
             return ResponseInputTextParam(type="input_text", text=text)
 
-        # Full transcript context (title, id, date, summary, content)
-        text = (
-            f"---\n"
-            f"Title: {transcript.title}\n"
-            f"ID: {transcript.id}\n"
-            f"Date: {transcript.date}\n"
-            f"Summary: {transcript.summary}\n"
-            f"Transcript:\n{transcript.content}\n"
-        )
+        # Full transcript context (title, id, date, optional summary, content)
+        parts: list[str] = [
+            "---",
+            f"Title: {transcript.title}",
+            f"ID: {transcript.id}",
+            f"Date: {transcript.date}",
+        ]
+        if transcript.summary:
+            parts.append(f"Summary: {transcript.summary}")
+        parts.append(f"Transcript:\n{transcript.content}")
+        text = "\n".join(parts) + "\n"
         return ResponseInputTextParam(type="input_text", text=text)
 
     async def user_message_to_input(

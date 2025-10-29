@@ -20,3 +20,19 @@ uv sync
 export OPENAI_API_KEY=sk-proj-...
 uv run uvicorn app.main:app --reload
 ```
+
+## Raw Markdown Transcripts
+
+Place `.md` files in `app/raw_transcripts/` and restart the backend. They will be exposed as `@doc_{slug}` tags derived from filenames (lowercased; non-alphanumeric → `_`; repeated `_` collapsed).
+
+Examples from this repo:
+
+- `Oxy <> Weekly Planning.md` → `@doc_oxy_weekly_planning`
+- `Craig - Oxy.md` → `@doc_craig_oxy`
+- ` Andrew Fitasy Check In.md` → `@doc_andrew_fitasy_check_in`
+- `Oxy Internal Sales Planning.md` → `@doc_oxy_internal_sales_planning`
+- `Soraban <> Oxy - Weekly Sync.md` → `@doc_soraban_oxy_weekly_sync`
+
+Notes:
+- The transcript "summary" is optional and omitted from context if missing.
+- The full Markdown file content is passed to the model as the transcript body.
